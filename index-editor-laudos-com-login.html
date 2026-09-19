@@ -1,0 +1,2307 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Editor de Laudos e Informações</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<style>
+/* ============================================================
+   CÁLCULO JUS — IDENTIDADE VISUAL
+   Editorial Precision / Warm Minimalism
+   ============================================================ */
+:root{
+  /* Marca */
+  --primary:#A85F43;
+  --primary-dark:#172B46;
+  --accent:#A85F43;
+  --salmon-light:#F3E9DC;
+  --accent-soft:#F3E9DC;
+  --accent-pale:#F8F5F1;
+
+  /* Superfícies */
+  --bg:#F8F5F1;
+  --card:#FFFFFF;
+
+  /* Texto */
+  --text:#172B46;
+  --muted:#6F747A;
+  --border:#D8D8D8;
+
+  /* Títulos do relatório (podem ser sobrescritos pelo color picker) */
+  --h1:#A85F43;
+  --h2:#A85F43;
+  --h3:#A85F43;
+
+  /* Tokens Cálculo Jus */
+  --cj-font-serif: Georgia, "Times New Roman", serif;
+  --cj-font-sans: Arial, Helvetica, sans-serif;
+  --cj-radius: 8px;
+  --cj-radius-sm: 6px;
+  --cj-radius-btn: 9px;
+  --cj-shadow-card: 0 1px 4px #172B4608;
+  --cj-shadow-tab: 0 1px 4px #172B4614;
+  --cj-focus: 2px solid #A85F4340;
+  --cj-backdrop: #172B4666;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:var(--cj-font-sans);background:var(--bg);color:var(--text)}
+
+/* ============================================================
+   HEADER SUPERIOR — com marca CÁLCULO JUS (somente na tela)
+   ============================================================ */
+header{
+  padding:22px 28px 16px;
+  background:#fff;
+  border-bottom:1px solid var(--border);
+}
+header h1{
+  margin:0;
+  color:var(--primary);
+  font-family:var(--cj-font-serif);
+  font-size:30px;
+  font-weight:700;
+  letter-spacing:-0.2px;
+  border-left:4px solid var(--primary);
+  padding-left:12px;
+  line-height:1.15;
+}
+header h1::before{
+  content:'CALCULOJUS.app.br';
+  display:block;
+  font:700 11px var(--cj-font-sans);
+  letter-spacing:1.7px;
+  color:var(--primary);
+  margin-bottom:6px;
+}
+header p{margin:8px 0 0;color:var(--muted);font-size:14px}
+
+/* Barra superior de projeto */
+.project-bar{
+  position:sticky;top:0;z-index:1200;
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:7px 16px;background:#fff;border-bottom:1px solid var(--border);
+  box-shadow:var(--cj-shadow-tab)
+}
+.project-tabs{display:flex;gap:4px;align-items:center}
+.project-tab{
+  border:1px solid transparent;background:transparent;color:var(--muted);
+  padding:7px 11px;border-radius:var(--cj-radius-sm);font-size:12px;font-weight:700;cursor:pointer
+}
+.project-tab.active{background:var(--accent-soft);color:var(--primary-dark);border-color:#D8C8B8}
+.project-actions{display:flex;align-items:center;gap:5px}
+.project-actions button{padding:6px 9px;font-size:11px;font-weight:700}
+.project-actions .pdf-action{background:var(--primary);color:#fff}
+.project-actions .status-top{font-size:11px;color:var(--muted);margin-left:4px;white-space:nowrap}
+
+.left-panel .tab-panel{display:none}
+.left-panel .tab-panel.active{display:block}.left-panel h2{margin-top:0}.left-panel{padding:14px}
+.process-fields{display:grid;grid-template-columns:1fr;gap:0}
+.file-drop-large{
+  border:2px dashed var(--border);border-radius:var(--cj-radius);padding:28px 18px;
+  text-align:center;background:#FAFAFA;transition:.15s
+}
+.file-drop-large.drag{border-color:var(--primary);background:var(--accent-pale)}
+.file-drop-large b{font-size:17px}
+.file-drop-large .hint{display:block;margin:7px 0 14px}
+.file-actions{display:flex;justify-content:center;gap:7px;flex-wrap:wrap}
+.file-actions button{font-size:12px}
+#filePicker{display:none}
+.file-list{margin-top:12px;display:flex;flex-direction:column;gap:6px}
+.file-item{
+  display:flex;align-items:center;gap:8px;padding:8px 9px;
+  border:1px solid var(--border);border-radius:var(--cj-radius-sm);background:#fff
+}
+.file-item .file-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px}
+.file-item .file-type{font-size:10px;color:var(--muted);font-weight:700}
+.file-item button{padding:4px 7px;font-size:11px}
+.file-help{margin-top:10px;font-size:11px;color:var(--muted);line-height:1.4}
+.appearance-panel .row{margin-bottom:10px}
+@media(max-width:950px){
+  .project-bar{align-items:flex-start;flex-direction:column}
+  .project-actions{width:100%;flex-wrap:wrap}
+}
+.container{max-width:1800px;margin:0 auto;padding:16px}
+.grid{display:grid;grid-template-columns:280px minmax(0,1fr);gap:14px}
+.panel{
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:var(--cj-radius);
+  padding:18px;
+  box-shadow:var(--cj-shadow-card)
+}
+.panel h2{
+  font-size:18px;
+  color:var(--primary);
+  font-family:var(--cj-font-serif);
+  margin:0 0 14px;
+  border-bottom:1px solid var(--salmon-light);
+  padding-bottom:8px;
+  font-weight:700
+}
+label{display:block;font-weight:600;color:var(--muted);font-size:13px;margin:12px 0 6px}
+input,textarea,select{
+  width:100%;border:1px solid var(--border);border-radius:var(--cj-radius);
+  padding:10px 11px;font:inherit;color:var(--text);background:#fff;
+  transition:border-color .15s ease
+}
+input:focus,textarea:focus,select:focus{
+  outline:var(--cj-focus);
+  outline-offset:1px;
+  border-color:var(--primary)
+}
+textarea{resize:vertical}
+button{
+  border:0;border-radius:var(--cj-radius-btn);padding:10px 13px;font-weight:700;
+  cursor:pointer;background:var(--primary);color:#fff;font-family:inherit;
+  transition:filter .15s ease
+}
+button:hover{filter:brightness(.96)}
+button.secondary{background:var(--accent-soft);color:var(--text)}
+button.danger{background:#A52D2D;color:#fff}
+button.small{padding:7px 9px;font-size:12px}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+.hint{font-size:12px;color:var(--muted);line-height:1.45}
+.drop{border:2px dashed var(--border);border-radius:var(--cj-radius);padding:18px;text-align:center;background:#FAFAFA}
+.drop.drag{border-color:var(--primary);background:var(--accent-pale)}
+.status{font-size:12px;color:var(--muted);margin-top:8px}
+.editor-wrap{min-width:0}
+
+/* Barra de ferramentas — organizada em 3 faixas horizontais */
+.toolbar{
+  position:sticky;top:0;z-index:1000;
+  display:grid;gap:7px;
+  padding:8px;background:var(--bg);border:1px solid var(--border);
+  border-bottom:0;border-radius:var(--cj-radius) var(--cj-radius) 0 0;
+  box-shadow:var(--cj-shadow-tab)
+}
+.toolbar-section{
+  display:flex;align-items:center;gap:5px;
+  min-width:0;min-height:48px;padding:6px 8px;
+  background:#fff;border:1px solid var(--border);border-radius:var(--cj-radius-sm)
+}
+.toolbar-section .section-title{
+  flex:0 0 auto;font-size:11px;font-weight:700;color:var(--muted);
+  padding-right:7px;margin-right:2px;border-right:1px solid var(--border)
+}
+.toolbar-section .tool-label{font-size:11px;color:var(--muted);font-weight:600;white-space:nowrap}
+.toolbar-section button{min-width:34px}
+.toolbar-section select{min-width:86px}
+.toolbar .tool-button{transition:.15s ease}
+.toolbar .tool-button.active{
+  background:var(--primary-dark);color:#fff;
+  box-shadow:inset 0 0 0 2px rgba(255,255,255,.25)
+}
+.toolbar-section .hint{font-size:11px;line-height:1.25;flex:1;min-width:120px}
+.toolbar-section .compact-sep{
+  width:1px;height:24px;background:var(--border);margin:0 2px
+}
+
+@media(min-width:1100px){
+  .toolbar-section:nth-child(1){grid-column:1;grid-row:1}
+  .toolbar-section:nth-child(2){grid-column:2;grid-row:1}
+  .toolbar-section:nth-child(3){grid-column:3;grid-row:1}
+  .toolbar-section:nth-child(4){grid-column:1;grid-row:2}
+  .toolbar-section:nth-child(5){grid-column:2;grid-row:2}
+  .toolbar-section:nth-child(6){grid-column:3;grid-row:2}
+  .toolbar-section:nth-child(7){grid-column:1;grid-row:3}
+  .toolbar-section:nth-child(8){grid-column:2;grid-row:3}
+  .toolbar-section:nth-child(9){grid-column:3;grid-row:3}
+}
+@media(min-width:700px) and (max-width:1099px){
+  .toolbar{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:699px){
+  .toolbar{grid-template-columns:1fr}
+}
+.toolbar button,.toolbar select{width:auto;padding:7px 9px;font-size:12px}.toolbar select{min-width:82px}
+.toolbar input[type=color]{width:32px;height:32px;padding:2px;border-radius:5px}.toolbar input[type=color].line-color{width:32px}
+
+#editor{
+  min-height:760px;background:#fff;border:1px solid var(--border);
+  border-radius:0 0 var(--cj-radius) var(--cj-radius);
+  padding:34px 42px;outline:none;line-height:1.55;
+  font-family:var(--cj-font-sans);color:var(--text)
+}
+#editor h1{color:var(--h1);font-size:26px;margin:0 0 16px;font-family:var(--cj-font-serif)}
+#editor h2{color:var(--h2);font-size:20px;margin:25px 0 10px;border-bottom:1px solid var(--salmon-light);padding-bottom:5px;font-family:var(--cj-font-serif)}
+#editor h3{color:var(--h3);font-size:16px;margin:18px 0 8px;font-family:var(--cj-font-serif)}
+#editor p{margin:8px 0}
+
+/* Cabeçalho editorial padrão do relatório */
+#editor .report-header{
+  margin:0 0 28px;
+  padding:0 0 12px 14px;
+  border-left:5px solid var(--primary);
+  border-bottom:1px solid var(--border);
+}
+#editor .report-title{
+  color:var(--h1);
+  font-family:var(--cj-font-serif);
+  font-size:25px;
+  line-height:1.2;
+  margin:0 0 12px;
+  padding:0;
+  border:0;
+  background:transparent;
+  font-weight:700;
+}
+#editor .report-parties{
+  display:grid;
+  gap:4px;
+  font-size:13px;
+  line-height:1.35;
+  color:var(--text);
+}
+#editor .report-dates{
+  margin-top:7px;
+  padding-top:7px;
+  border-top:1px solid var(--border);
+  font-size:13px;
+  line-height:1.35;
+  color:var(--text);
+}
+#editor .report-separator{margin:0 9px;color:var(--muted)}
+#editor .preview-card{border:0;background:transparent;padding:0;margin:0}
+
+#editor table{border-collapse:collapse;width:100%;margin:12px 0}
+#editor table.editor-markdown-table{border-collapse:collapse;width:100%;margin:16px 0;table-layout:auto}
+#editor table.editor-markdown-table th,#editor table.editor-markdown-table td{border:1px solid var(--border);padding:8px 10px;vertical-align:top}
+#editor table.editor-markdown-table th{background:var(--salmon-light);color:var(--text);font-weight:700}
+#editor table.editor-markdown-table tr:nth-child(even) td{background:#FAFAFA}
+#editor table.editor-markdown-table p{margin:0}
+
+
+.table-modal-overlay{
+  position:fixed;inset:0;z-index:3000;display:none;
+  align-items:center;justify-content:center;
+  background:var(--cj-backdrop);backdrop-filter:blur(2px);
+}
+.table-modal-overlay.open{display:flex}
+.table-modal{
+  width:min(900px,calc(100vw - 32px));max-height:88vh;overflow:auto;
+  background:#fff;border:1px solid var(--border);border-radius:var(--cj-radius);
+  box-shadow:0 18px 60px rgba(0,0,0,.22);padding:20px;
+}
+.table-modal h3{
+  margin:0 0 5px;
+  color:var(--primary);
+  font-family:var(--cj-font-serif);
+  font-size:20px;
+  font-weight:700
+}
+.table-modal .modal-subtitle{margin:0 0 15px;color:var(--muted);font-size:13px}
+.table-preview-wrap{border:1px solid var(--border);border-radius:var(--cj-radius-sm);overflow:auto;max-height:48vh}
+.table-preview{width:100%;border-collapse:collapse}
+.table-preview th,.table-preview td{border:1px solid var(--border);padding:8px 10px;vertical-align:top}
+.table-preview th{background:var(--salmon-light);color:var(--text)}
+.table-preview td[contenteditable="true"],.table-preview th[contenteditable="true"]{outline:none}
+.table-preview td[contenteditable="true"]:focus,.table-preview th[contenteditable="true"]:focus{box-shadow:inset 0 0 0 2px rgba(168,95,67,.28)}
+.table-modal-toolbar{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0}
+.table-modal-toolbar button{background:var(--accent-soft);color:var(--text);border:1px solid var(--border)}
+.table-modal-toolbar button.primary{background:var(--primary);color:#fff;border-color:var(--primary)}
+.table-modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:15px}
+.table-modal-actions button{min-width:100px}
+.table-row-drag{cursor:grab;user-select:none;text-align:center;width:38px;color:var(--muted)}
+.table-preview tr.dragging{opacity:.45}
+
+#editor .editor-rule{
+  border:0;border-top:1px solid var(--editor-line-color,#D8D8D8);
+  margin:18px 0;height:0;cursor:pointer
+}
+#editor .editor-rule.selected{outline:2px solid rgba(168,95,67,.28);outline-offset:3px}
+.tool-group{display:flex;align-items:center;gap:4px}
+.tool-group:last-child{border-right:0}
+.tool-label{font-size:12px;color:var(--muted);font-weight:600;margin-right:3px}
+.title-btn{background:#fff;color:var(--text);border:1px solid var(--border)}
+.title-btn.active{background:var(--primary);color:#fff;border-color:var(--primary)}
+.tool-icon{font-size:18px;line-height:1;min-width:34px}
+.color-tool{display:flex;align-items:center;gap:4px;margin:0;font-size:12px;color:var(--muted);font-weight:600}
+.color-tool input{width:32px;height:30px;padding:2px}
+#editor th,#editor td{border:1px solid var(--border);padding:7px}
+#editor th{background:var(--salmon-light);color:var(--text)}
+.meta{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.preview-card{border:1px solid var(--border);padding:12px;border-radius:var(--cj-radius-sm);background:#fff;margin-top:12px}
+.title-color-row{display:flex;align-items:center;gap:10px}
+.title-color-row input[type=color]{width:48px;height:38px;padding:3px;flex:0 0 auto;cursor:pointer}
+.swatches{display:flex;gap:6px;flex-wrap:wrap}
+.swatch{width:30px;height:30px;border-radius:5px;border:2px solid #fff;box-shadow:0 0 0 1px var(--border);cursor:pointer}
+.swatch:hover{transform:translateY(-1px)}
+.kpis{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
+.kpi{background:#FAFAFA;border:1px solid var(--border);padding:10px;border-radius:var(--cj-radius-sm)}
+.kpi b{display:block;color:var(--primary)}
+@media(max-width:950px){.grid{grid-template-columns:1fr}.meta{grid-template-columns:1fr}}
+
+@page{
+ size:A4;
+ margin:18mm 16mm 18mm 16mm;
+}
+
+@media print{
+  /* Terracota mais marcado no PDF — não afeta a tela */
+  :root{ --primary:#8B3A1F; }
+
+  body{
+    background:#fff;
+    color:var(--text);
+    font-family:var(--cj-font-sans);
+    font-size:11.5pt;
+  }
+  header,.project-bar,.left-panel,.toolbar{display:none!important}
+  .container{
+    padding:0;
+    max-width:none;
+    margin:0;
+  }
+  .grid{display:block}
+  .editor-wrap{width:100%;min-width:0}
+  #editor{
+    border:0;
+    border-radius:0;
+    padding:0;
+    min-height:0;
+    background:#fff;
+    line-height:1.55;
+    font-size:11.5pt;
+    color:var(--text);
+  }
+  #editor h1{
+    font-size:20pt;
+    line-height:1.2;
+    margin:0 0 14pt;
+    color:var(--h1);
+    font-family:var(--cj-font-serif);
+    page-break-after:avoid;
+  }
+  #editor h2{
+    font-size:14pt;
+    line-height:1.25;
+    margin:18pt 0 8pt;
+    color:var(--h2);
+    font-family:var(--cj-font-serif);
+    page-break-after:avoid;
+    break-after:avoid;
+  }
+  #editor h3{
+    font-size:12pt;
+    line-height:1.3;
+    margin:13pt 0 6pt;
+    color:var(--h3);
+    font-family:var(--cj-font-serif);
+    page-break-after:avoid;
+    break-after:avoid;
+  }
+  #editor p{
+    margin:0 0 10pt;
+    orphans:3;
+    widows:3;
+  }
+  #editor ul,#editor ol{
+    margin:0 0 10pt 20pt;
+    padding-left:16pt;
+  }
+  #editor li{
+    margin:0 0 5pt;
+    orphans:2;
+    widows:2;
+  }
+  #editor table{
+    width:100%;
+    margin:10pt 0 14pt;
+    border-collapse:collapse;
+    font-size:10.5pt;
+  }
+  #editor th,#editor td{
+    border:1px solid #CFCFCF;
+    padding:6pt 7pt;
+    vertical-align:top;
+  }
+  #editor th{
+    background:var(--salmon-light)!important;
+    color:var(--text);
+  }
+  #editor .preview-card{
+    margin:0 0 16pt;
+    padding:11pt 13pt;
+    border:1px solid var(--border);
+    border-radius:6pt;
+    background:#fff;
+    page-break-inside:avoid;
+    break-inside:avoid;
+  }
+  #editor .meta{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:7pt 20pt;
+  }
+  #editor .meta p{
+    margin:0;
+  }
+  #editor .meta b{
+    color:var(--text);
+  }
+  #editor a{
+    color:inherit;
+    text-decoration:none;
+  }
+  #editor img{
+    max-width:100%;
+    height:auto;
+  }
+}
+
+.project-actions #extrairMd{font-weight:700}
+.project-actions button{white-space:nowrap}
+
+/* ============================================================
+   COMPUTUM — AUTENTICAÇÃO
+   Tela de login no padrão visual do abono.computum.com.br
+   ============================================================ */
+body.computum-locked {
+  overflow: hidden;
+}
+
+#computumAuthOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(248,245,241,.68);
+  backdrop-filter: blur(7px);
+  -webkit-backdrop-filter: blur(7px);
+}
+
+#computumAuthOverlay[hidden] {
+  display: none !important;
+}
+
+.computum-auth-card {
+  width: min(615px, 100%);
+  min-height: 560px;
+  padding: 38px 32px 42px;
+  background: rgba(255,255,255,.97);
+  border: 1px solid rgba(216,216,216,.85);
+  border-radius: 20px;
+  box-shadow: 0 18px 50px rgba(23,43,70,.16);
+}
+
+.computum-auth-brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #E7DED6;
+}
+
+.computum-auth-logo {
+  width: 45px;
+  height: 45px;
+  flex: 0 0 45px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: #173B52;
+  color: #fff;
+  font: 700 27px Georgia, "Times New Roman", serif;
+  box-shadow: 0 4px 10px rgba(23,59,82,.18);
+}
+
+.computum-auth-name {
+  margin: 0;
+  color: #A85F43;
+  font: 700 29px Georgia, "Times New Roman", serif;
+  letter-spacing: -.2px;
+}
+
+.computum-auth-subtitle {
+  margin: 16px 0 34px;
+  color: #6F747A;
+  font-size: 16px;
+  line-height: 1.4;
+  text-align: center;
+}
+
+.computum-auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.computum-auth-field {
+  display: block;
+  margin: 0 0 22px;
+}
+
+.computum-auth-field span {
+  display: block;
+  margin: 0 0 8px;
+  color: #3E515E;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.computum-auth-field input {
+  width: 100%;
+  height: 54px;
+  margin: 0;
+  padding: 0 14px;
+  border: 1px solid #D4DADF;
+  border-radius: 12px;
+  background: #FCFDFE;
+  color: #172B46;
+  font: inherit;
+  font-size: 16px;
+  outline: none;
+}
+
+.computum-auth-field input:focus {
+  border-color: #A85F43;
+  box-shadow: 0 0 0 3px rgba(168,95,67,.12);
+}
+
+.computum-auth-btn {
+  width: 100%;
+  height: 55px;
+  margin-top: 2px;
+  border: 0;
+  border-radius: 12px;
+  background: #173B52;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 5px 12px rgba(23,59,82,.12);
+}
+
+.computum-auth-btn:hover {
+  filter: brightness(.96);
+}
+
+.computum-auth-forgot {
+  display: block;
+  width: 100%;
+  margin-top: 25px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #647A87;
+  font-size: 15px;
+  font-weight: 700;
+  text-align: center;
+  cursor: pointer;
+}
+
+.computum-auth-forgot:hover {
+  color: #A85F43;
+}
+
+#caMsg {
+  min-height: 20px;
+  margin: 15px 0 0;
+  color: #6F747A;
+  font-size: 13px;
+  line-height: 1.4;
+  text-align: center;
+}
+
+.computum-userbar {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 1500;
+  display: none;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 9px 7px 12px;
+  background: rgba(255,255,255,.96);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  box-shadow: 0 4px 16px rgba(23,43,70,.12);
+}
+
+.computum-userbar span {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.computum-userbar button {
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 11px;
+}
+
+@media (max-width: 600px) {
+  #computumAuthOverlay {
+    padding: 14px;
+  }
+
+  .computum-auth-card {
+    min-height: 535px;
+    padding: 28px 24px 32px;
+    border-radius: 18px;
+  }
+
+  .computum-auth-name {
+    font-size: 27px;
+  }
+
+  .computum-auth-subtitle {
+    margin-bottom: 30px;
+    font-size: 15px;
+  }
+
+  .computum-auth-field {
+    margin-bottom: 20px;
+  }
+
+  .computum-userbar {
+    right: 10px;
+    bottom: 10px;
+  }
+}
+
+</style>
+</head>
+<body class="computum-locked">
+
+<!-- ============================================================
+     COMPUTUM — LOGIN
+     O editor permanece carregado ao fundo, mas bloqueado até
+     existir uma sessão autenticada no Supabase.
+     ============================================================ -->
+<div id="computumAuthOverlay" role="dialog" aria-modal="true" aria-labelledby="caTitle">
+  <div class="computum-auth-card">
+    <div class="computum-auth-brand">
+      <div class="computum-auth-logo" aria-hidden="true">C</div>
+      <h1 class="computum-auth-name">Computum</h1>
+    </div>
+
+    <p class="computum-auth-subtitle" id="caSub">
+      Sistema Judicial de Cálculos — Editor de Laudos
+    </p>
+
+    <form id="caForm" class="computum-auth-form" autocomplete="on">
+      <label class="computum-auth-field">
+        <span>E-mail</span>
+        <input id="caEmail" name="email" type="email" autocomplete="username" required>
+      </label>
+
+      <label class="computum-auth-field">
+        <span>Senha</span>
+        <input id="caPassword" name="password" type="password" autocomplete="current-password" required>
+      </label>
+
+      <button class="computum-auth-btn" type="submit">Entrar</button>
+    </form>
+
+    <button class="computum-auth-forgot" id="caForgot" type="button">
+      Esqueci a senha
+    </button>
+
+    <div id="caMsg" role="status" aria-live="polite"></div>
+  </div>
+</div>
+
+<div class="computum-userbar" id="computumUserbar">
+  <span id="computumUserEmail"></span>
+  <button id="computumLogout" class="secondary" type="button">Sair</button>
+</div>
+
+<header>
+  <h1>Editor de Laudos e Informações</h1>
+  <p>Leitura de documentos, organização automática por títulos e edição visual WYSIWYG.</p>
+</header>
+
+<div class="project-bar">
+  <div class="project-tabs">
+    <button class="project-tab active" data-panel="processPanel">Dados do processo</button>
+    <button class="project-tab" data-panel="filesPanel">Arquivos</button>
+    <button class="project-tab" data-panel="appearancePanel">Aparência</button>
+  </div>
+  <div class="project-actions">
+    <button class="secondary" id="salvar" type="button">Salvar JSON</button>
+    <button class="secondary" id="extrairMd" type="button" title="Extrair o conteúdo atual para um arquivo Markdown">Extrair .MD</button>
+    <button class="secondary" id="carregar" type="button">Carregar JSON</button>
+    <button class="pdf-action" id="imprimir" type="button">PDF</button>
+    <button class="secondary" id="copiar" type="button">Copiar</button>
+    <input type="file" id="jsonFile" accept=".json" hidden>
+    <span class="status-top" id="status">Pronto.</span>
+  </div>
+</div>
+
+
+<div class="container">
+<div class="grid">
+
+<aside class="panel left-panel">
+
+  <section id="processPanel" class="tab-panel active">
+    <h2>Dados do processo</h2>
+    <div class="process-fields">
+      <label>Processo nº</label>
+      <input id="processo" placeholder="0000000-00.0000.0.00.0000">
+      <label>Assunto</label>
+      <input id="assunto" placeholder="Ex.: Procedimento Comum Cível">
+      <label>Parte autora</label>
+      <input id="autor">
+      <label>Réu</label>
+      <input id="reu">
+      <label>Órgão / Vara</label>
+      <input id="vara" placeholder="Ex.: 2ª Vara de Acidentes de Trabalho da Capital">
+      <label>Data de atualização</label>
+      <input id="atualizacao" placeholder="08/2026">
+      <label>Data de ajuizamento</label>
+      <input id="ajuizamento" placeholder="15/10/2022">
+      <label>Data de citação</label>
+      <input id="citacao" placeholder="10/2022">
+    </div>
+    <div class="row" style="margin-top:15px">
+      <button id="auto">Organizar automaticamente</button>
+      <button class="secondary" id="limpar">Limpar editor</button>
+    </div>
+  </section>
+
+  <section id="filesPanel" class="tab-panel">
+    <h2>Arquivos</h2>
+    <div class="file-drop-large" id="drop">
+      <b>Arraste arquivos aqui</b>
+      <span class="hint">PDF, Markdown (.md), texto (.txt) e HTML (.html)</span>
+      <div class="file-actions">
+        <button id="chooseFiles">Escolher arquivos</button>
+        <button class="secondary" id="clearFiles">Limpar lista</button>
+      </div>
+      <input type="file" id="filePicker" multiple accept=".pdf,.md,.markdown,.txt,.html,.htm">
+    </div>
+    <div class="file-list" id="fileList"></div>
+    <div class="file-help">
+      <b>Importação:</b> PDF, Markdown, TXT e HTML. O Markdown é convertido para elementos editáveis do editor.
+      <br><br>
+      <button class="secondary" id="extrairMdArquivos" type="button">Extrair conteúdo atual como .MD</button>
+    </div>
+  </section>
+
+  <section id="appearancePanel" class="tab-panel appearance-panel">
+    <h2>Aparência</h2>
+    <label>Cor principal</label>
+    <input type="color" id="corPrincipal" value="#A85F43" style="height:38px">
+    <label>Cor dos títulos</label>
+    <div class="title-color-row">
+      <input type="color" id="corTitulos" value="#A85F43" title="Escolher qualquer cor para os títulos">
+      <div class="swatches" id="swatches">
+        <span class="swatch" data-c="#A85F43" style="background:#A85F43" title="Terracota (Cálculo Jus)"></span>
+        <span class="swatch" data-c="#172B46" style="background:#172B46" title="Azul-marinho"></span>
+        <span class="swatch" data-c="#1f4e79" style="background:#1f4e79" title="Azul"></span>
+        <span class="swatch" data-c="#365f3c" style="background:#365f3c" title="Verde"></span>
+        <span class="swatch" data-c="#333333" style="background:#333333" title="Cinza"></span>
+      </div>
+    </div>
+    <div class="hint">A cor escolhida também controla as linhas e os detalhes dos títulos.</div>
+    <label>Estilo dos títulos</label>
+    <select id="estiloTitulo">
+      <option value="linha">Título + linha inferior</option>
+      <option value="simples">Título simples</option>
+      <option value="caixa">Título em caixa</option>
+    </select>
+  </section>
+
+</aside>
+
+<main class="editor-wrap">
+  <div class="toolbar">
+
+    <!-- FAIXA 1: histórico / estilo / texto -->
+    <div class="toolbar-section">
+      <span class="section-title">Histórico</span>
+      <button class="tool-icon" id="undoBtn" title="Desfazer (Ctrl+Z)">↶</button>
+      <button class="tool-icon" id="redoBtn" title="Refazer (Ctrl+Y)">↷</button>
+    </div>
+
+    <div class="toolbar-section">
+      <span class="section-title">Estilo</span>
+      <button class="title-btn" data-block="p">Texto</button>
+      <button class="title-btn" data-block="h1">Título 1</button>
+      <button class="title-btn active" data-block="h2">Título 2</button>
+      <button class="title-btn" data-block="h3">Título 3</button>
+    </div>
+
+    <div class="toolbar-section">
+      <span class="section-title">Texto</span>
+      <button data-cmd="bold" title="Negrito"><b>B</b></button>
+      <button data-cmd="italic" title="Itálico"><i>I</i></button>
+      <button data-cmd="underline" title="Sublinhado"><u>U</u></button>
+      <span class="compact-sep"></span>
+      <button id="fontDecrease" title="Diminuir fonte">A−</button>
+      <select id="fontSize" title="Tamanho da fonte da seleção">
+        <option value="">Tamanho</option>
+        <option value="8">8 px</option><option value="10">10 px</option>
+        <option value="12">12 px</option><option value="14">14 px</option>
+        <option value="16">16 px</option><option value="18">18 px</option>
+        <option value="20">20 px</option><option value="22">22 px</option>
+        <option value="24">24 px</option><option value="26">26 px</option>
+        <option value="28">28 px</option><option value="30">30 px</option>
+        <option value="32">32 px</option><option value="34">34 px</option>
+        <option value="36">36 px</option><option value="38">38 px</option>
+        <option value="40">40 px</option><option value="42">42 px</option>
+      </select>
+      <button id="fontIncrease" title="Aumentar fonte">A+</button>
+      <input type="color" id="fontColor" value="#172B46" title="Cor do texto selecionado">
+    </div>
+
+    <!-- FAIXA 2: formatação / alinhamento / listas e recuo -->
+    <div class="toolbar-section">
+      <span class="section-title">Formatação</span>
+      <button data-cmd="removeFormat" title="Remover formatação da seleção">Limpar</button>
+    </div>
+
+    <div class="toolbar-section">
+      <span class="section-title">Alinhamento</span>
+      <button data-cmd="justifyLeft" title="Alinhar à esquerda">≡</button>
+      <button data-cmd="justifyCenter" title="Centralizar">≡</button>
+      <button data-cmd="justifyRight" title="Alinhar à direita">≡</button>
+      <button data-cmd="justifyFull" title="Justificar">☰</button>
+    </div>
+
+    <div class="toolbar-section">
+      <span class="section-title">Listas</span>
+      <button data-cmd="insertUnorderedList" title="Lista com marcadores">• Lista</button>
+      <button data-cmd="insertOrderedList" title="Lista numerada">1. Lista</button>
+      <span class="compact-sep"></span>
+      <span class="tool-label">Recuo</span>
+      <button data-cmd="outdent" title="Diminuir recuo">←</button>
+      <button data-cmd="indent" title="Aumentar recuo">→</button>
+    </div>
+
+    <!-- FAIXA 3: inserir / ações / pincel -->
+    <div class="toolbar-section">
+      <span class="section-title">Inserir</span>
+      <button id="linkBtn" title="Inserir link">Link</button>
+      <button id="tableBtn" title="Inserir tabela vazia">Tabela</button>
+      <button id="convertTableBtn" title="Converter a seleção em tabela">Sel. → Tabela</button>
+      <button id="lineBtn" title="Inserir linha horizontal discreta">Linha</button>
+      <span class="tool-label">Cor</span>
+      <input class="line-color" type="color" id="lineColor" value="#D8D8D8" title="Cor da linha">
+    </div>
+
+    <div class="toolbar-section">
+      <span class="section-title">Ações</span>
+      <button id="resetTitleStyle" title="Voltar o estilo dos títulos ao padrão">Desfazer estilo</button>
+      <button id="limparFormatacao" data-cmd="removeFormat" title="Remover formatação da seleção">Limpar</button>
+    </div>
+
+    <div class="toolbar-section">
+      <span class="section-title">Pincel</span>
+      <button id="paintBrushBtn" class="tool-button" title="Copiar a formatação da seleção para outro trecho">🖌 Pincel</button>
+      <button id="paintBrushContinuousBtn" class="tool-button" title="Aplicar a mesma formatação em vários trechos">🖌 Contínuo</button>
+      <span class="hint">Selecione uma formatação → clique no pincel → selecione o destino.</span>
+    </div>
+
+  </div>
+
+  <div id="editor" contenteditable="true">
+    <div class="report-header">
+      <h1 class="report-title" data-auto-title="true">Relatório de Cálculo Judicial</h1>
+      <div class="report-parties">
+        <div><b>Processo:</b> <span data-field="processo">—</span></div>
+        <div><b>Parte Autora:</b> <span data-field="autor">—</span></div>
+        <div><b>Réu:</b> <span data-field="reu">—</span></div>
+      </div>
+      <div class="report-dates">
+        <b>Ajuizamento:</b> <span data-field="ajuizamento">—</span>
+        <span class="report-separator">|</span>
+        <b>Citação:</b> <span data-field="citacao">—</span>
+        <span class="report-separator">|</span>
+        <b>Atualização:</b> <span data-field="atualizacao">—</span>
+      </div>
+    </div>
+    <h2>1. Síntese</h2>
+    <p>Insira ou importe o conteúdo do documento. O botão "Organizar automaticamente" identifica títulos, subtítulos, listas e blocos de texto sem alterar o conteúdo.</p>
+    <h2>2. Informações relevantes</h2>
+    <p>O conteúdo poderá ser editado diretamente nesta área, com formatação visual semelhante a um editor de texto.</p>
+    <h2>3. Observações</h2>
+    <p>Use este espaço para ressalvas, conclusões e informações complementares.</p>
+  </div>
+</main>
+
+</div>
+</div>
+
+<div class="table-modal-overlay" id="tableModalOverlay">
+  <div class="table-modal" role="dialog" aria-modal="true" aria-labelledby="tableModalTitle">
+    <h3 id="tableModalTitle">Converter seleção em tabela</h3>
+    <p class="modal-subtitle" id="tableModalSubtitle">Revise a estrutura antes de inserir no documento.</p>
+
+    <div class="table-modal-toolbar">
+      <button id="addTableRow">+ Linha</button>
+      <button id="addTableCol">+ Coluna</button>
+      <button id="removeTableRow">− Linha</button>
+      <button id="removeTableCol">− Coluna</button>
+      <button id="toggleHeader">Alternar cabeçalho</button>
+    </div>
+
+    <div class="table-preview-wrap">
+      <table class="table-preview" id="tablePreview"></table>
+    </div>
+
+    <div class="table-modal-actions">
+      <button id="cancelTableModal" class="secondary">Cancelar</button>
+      <button id="confirmTableModal" class="primary">Inserir tabela</button>
+    </div>
+  </div>
+</div>
+
+
+<script id="computum-auth-script">
+(function(){
+  const SUPABASE_URL = 'https://tdcexflyomkpygtxynjb.supabase.co';
+  const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_dqM-ROG8Pc7OwW6F-Swcpw_-DMNn19R';
+
+  const client = window.supabase.createClient(
+    SUPABASE_URL,
+    SUPABASE_PUBLISHABLE_KEY
+  );
+
+  const overlay = document.getElementById('computumAuthOverlay');
+  const form = document.getElementById('caForm');
+  const email = document.getElementById('caEmail');
+  const pass = document.getElementById('caPassword');
+  const msg = document.getElementById('caMsg');
+  const forgot = document.getElementById('caForgot');
+  const bar = document.getElementById('computumUserbar');
+  const userEmail = document.getElementById('computumUserEmail');
+  const subtitle = document.getElementById('caSub');
+
+  function showMsg(text){
+    msg.textContent = text || '';
+  }
+
+  function showUser(user){
+    overlay.hidden = true;
+    document.body.classList.remove('computum-locked');
+    bar.style.display = 'flex';
+    userEmail.textContent = user?.email || '';
+  }
+
+  function showLogin(){
+    overlay.hidden = false;
+    document.body.classList.add('computum-locked');
+    bar.style.display = 'none';
+    pass.value = '';
+    subtitle.textContent = 'Sistema Judicial de Cálculos — Editor de Laudos';
+    showMsg('');
+  }
+
+  form.addEventListener('submit', async function(e){
+    e.preventDefault();
+    showMsg('Entrando...');
+
+    const { error } = await client.auth.signInWithPassword({
+      email: email.value.trim(),
+      password: pass.value
+    });
+
+    if(error){
+      showMsg('Não foi possível entrar. Verifique o e-mail e a senha.');
+      console.error('Supabase Auth:', error);
+      return;
+    }
+
+    showMsg('');
+  });
+
+  forgot.addEventListener('click', async function(){
+    const value = email.value.trim();
+
+    if(!value){
+      showMsg('Informe seu e-mail primeiro.');
+      email.focus();
+      return;
+    }
+
+    showMsg('Enviando instruções...');
+
+    const { error } = await client.auth.resetPasswordForEmail(value, {
+      redirectTo: window.location.origin + window.location.pathname
+    });
+
+    if(error){
+      showMsg('Não foi possível enviar as instruções.');
+      console.error('Supabase Recovery:', error);
+    }else{
+      showMsg('Verifique seu e-mail para redefinir a senha.');
+    }
+  });
+
+  document.getElementById('computumLogout').addEventListener('click', async function(){
+    await client.auth.signOut();
+    showLogin();
+  });
+
+  client.auth.onAuthStateChange(function(event, session){
+    if(event === 'PASSWORD_RECOVERY'){
+      overlay.hidden = false;
+      document.body.classList.add('computum-locked');
+      bar.style.display = 'none';
+
+      subtitle.textContent = 'Defina uma nova senha para sua conta.';
+
+      form.innerHTML = `
+        <label class="computum-auth-field">
+          <span>Nova senha</span>
+          <input id="caNewPassword" type="password" minlength="6" autocomplete="new-password" required>
+        </label>
+        <button class="computum-auth-btn" type="submit">Salvar nova senha</button>
+      `;
+
+      form.onsubmit = async function(e){
+        e.preventDefault();
+
+        const newPassword = document.getElementById('caNewPassword').value;
+
+        if(newPassword.length < 6){
+          showMsg('A senha deve ter pelo menos 6 caracteres.');
+          return;
+        }
+
+        showMsg('Salvando...');
+
+        const { error } = await client.auth.updateUser({
+          password: newPassword
+        });
+
+        if(error){
+          showMsg('Não foi possível alterar a senha.');
+          console.error('Supabase Update Password:', error);
+        }else{
+          showMsg('Senha alterada com sucesso.');
+          setTimeout(function(){
+            window.location.reload();
+          }, 800);
+        }
+      };
+
+      return;
+    }
+
+    if(session){
+      showUser(session.user);
+    }else{
+      showLogin();
+    }
+  });
+
+  client.auth.getSession().then(function(result){
+    if(result.data && result.data.session){
+      showUser(result.data.session.user);
+    }else{
+      showLogin();
+    }
+  }).catch(function(error){
+    console.error('Supabase Session:', error);
+    showLogin();
+  });
+})();
+</script>
+
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+const $=id=>document.getElementById(id);
+const editor=$('editor');
+
+document.querySelectorAll('.project-tab').forEach(tab=>{
+  tab.addEventListener('click',()=>{
+    document.querySelectorAll('.project-tab').forEach(t=>t.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+    tab.classList.add('active');
+    $(tab.dataset.panel).classList.add('active');
+  });
+});
+
+
+function escapeHtml(s){
+  return s.replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+}
+
+function updateMeta(){
+  const map={
+    processo:'processo',
+    assunto:'assunto',
+    autor:'autor',
+    reu:'reu',
+    vara:'vara',
+    atualizacao:'atualizacao',
+    ajuizamento:'ajuizamento',
+    citacao:'citacao'
+  };
+  Object.entries(map).forEach(([k,id])=>{
+    if(!$(id)) return;
+    editor.querySelectorAll('[data-field="'+k+'"]').forEach(e=>{
+      e.textContent=$(id).value||'—';
+    });
+  });
+
+  const title=editor.querySelector('.report-title[data-auto-title="true"]');
+  if(title){
+    const assunto=$('assunto')?.value?.trim();
+    title.textContent=assunto
+      ? 'Relatório de Cálculo Judicial: '+assunto
+      : 'Relatório de Cálculo Judicial';
+  }
+}
+['processo','assunto','autor','reu','vara','atualizacao','ajuizamento','citacao']
+  .filter(id=>$(id))
+  .forEach(id=>$(id).addEventListener('input',updateMeta));
+
+function hexToRgb(hex){
+  hex=hex.replace('#','');
+  if(hex.length===3) hex=hex.split('').map(x=>x+x).join('');
+  return {r:parseInt(hex.slice(0,2),16),g:parseInt(hex.slice(2,4),16),b:parseInt(hex.slice(4,6),16)};
+}
+function rgbToHex(r,g,b){
+  return '#'+[r,g,b].map(v=>Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,'0')).join('');
+}
+function mix(hex, target, amount){
+  const a=hexToRgb(hex), b=hexToRgb(target);
+  return rgbToHex(a.r+(b.r-a.r)*amount,a.g+(b.g-a.g)*amount,a.b+(b.b-a.b)*amount);
+}
+function applyTheme(){
+  const c=$('corPrincipal').value;
+  document.documentElement.style.setProperty('--primary',c);
+  /* Cálculo Jus: cor institucional fixa (azul-marinho) */
+  document.documentElement.style.setProperty('--primary-dark','#172B46');
+  document.documentElement.style.setProperty('--accent',mix(c,'#ffffff',.12));
+  document.documentElement.style.setProperty('--salmon-light',mix(c,'#ffffff',.62));
+  document.documentElement.style.setProperty('--accent-soft',mix(c,'#ffffff',.84));
+  document.documentElement.style.setProperty('--accent-pale',mix(c,'#ffffff',.94));
+  document.documentElement.style.setProperty('--h1', $('corTitulos').value);
+  document.documentElement.style.setProperty('--h2', $('corTitulos').value);
+  document.documentElement.style.setProperty('--h3', $('corTitulos').value);
+  aplicarEstiloTitulos($('estiloTitulo').value);
+}
+$('corPrincipal').addEventListener('input',applyTheme);
+
+function applyTitleColor(c){
+  $('corTitulos').value=c;
+  document.documentElement.style.setProperty('--h1',c);
+  document.documentElement.style.setProperty('--h2',c);
+  document.documentElement.style.setProperty('--h3',c);
+  aplicarEstiloTitulos($('estiloTitulo').value);
+}
+
+$('corTitulos').addEventListener('input',()=>applyTitleColor($('corTitulos').value));
+
+$('swatches').addEventListener('click',e=>{
+  if(!e.target.dataset.c)return;
+  applyTitleColor(e.target.dataset.c);
+});
+
+function aplicarEstiloTitulos(v, registrarHistorico=true){
+  const titulos = editor.querySelectorAll('h1,h2,h3');
+  titulos.forEach(h=>{
+    h.style.removeProperty('background');
+    h.style.removeProperty('color');
+    h.style.removeProperty('padding');
+    h.style.removeProperty('border-bottom');
+    h.style.removeProperty('border-radius');
+  });
+
+  if(v==='linha'){
+    editor.querySelectorAll('h2').forEach(h=>{
+      h.style.borderBottom='1px solid var(--h2)';
+      h.style.paddingBottom='5px';
+    });
+  }else if(v==='caixa'){
+    editor.querySelectorAll('h2').forEach(h=>{
+      h.style.background='var(--primary)';
+      h.style.color='#fff';
+      h.style.padding='8px 10px';
+      h.style.borderRadius='4px';
+    });
+  }
+}
+
+$('estiloTitulo').addEventListener('change',()=>{
+  const v=$('estiloTitulo').value;
+  aplicarEstiloTitulos(v);
+});
+
+let savedRange = null;
+
+function saveSelection(){
+  const sel = window.getSelection();
+  if(sel && sel.rangeCount && editor.contains(sel.anchorNode)){
+    savedRange = sel.getRangeAt(0).cloneRange();
+  }
+}
+
+function restoreSelection(){
+  if(!savedRange) return;
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(savedRange);
+}
+
+editor.addEventListener('keyup', saveSelection);
+editor.addEventListener('mouseup', saveSelection);
+editor.addEventListener('input', saveSelection);
+
+function applyCommand(cmd, value=null){
+  restoreSelection();
+  editor.focus();
+  document.execCommand(cmd,false,value);
+  saveSelection();
+}
+
+document.querySelectorAll('[data-cmd]').forEach(b=>{
+  b.addEventListener('mousedown', e=>e.preventDefault());
+  b.addEventListener('click',()=>applyCommand(b.dataset.cmd));
+});
+
+document.querySelectorAll('[data-block]').forEach(b=>{
+  b.addEventListener('mousedown', e=>e.preventDefault());
+  b.addEventListener('click',()=>{
+    const block=b.dataset.block;
+    applyCommand('formatBlock', block);
+    document.querySelectorAll('.title-btn').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+  });
+});
+
+$('undoBtn').addEventListener('mousedown', e=>e.preventDefault());
+$('undoBtn').addEventListener('click',()=>applyCommand('undo'));
+$('redoBtn').addEventListener('mousedown', e=>e.preventDefault());
+$('redoBtn').addEventListener('click',()=>applyCommand('redo'));
+
+
+let brushHTML = null;
+let brushTextStyle = null;
+let brushContinuous = false;
+
+function getSelectionHTML(){
+  const sel = window.getSelection();
+  if(!sel || sel.rangeCount===0 || sel.isCollapsed || !editor.contains(sel.anchorNode)) return null;
+  const range = sel.getRangeAt(0);
+  const box = document.createElement('div');
+  box.appendChild(range.cloneContents());
+  return box.innerHTML;
+}
+
+function captureBrushFormat(){
+  const htmlSelection = getSelectionHTML();
+  if(!htmlSelection) return false;
+
+  const sel = window.getSelection();
+  const node = sel.anchorNode.nodeType === 3 ? sel.anchorNode.parentElement : sel.anchorNode;
+  const block = node?.closest('p,h1,h2,h3,li,blockquote');
+  if(!block || !editor.contains(block)) return false;
+
+  brushHTML = htmlSelection;
+  brushTextStyle = {
+    fontSize: node ? getComputedStyle(node).fontSize : '',
+    color: node ? getComputedStyle(node).color : '',
+    fontFamily: node ? getComputedStyle(node).fontFamily : '',
+    fontWeight: node ? getComputedStyle(node).fontWeight : '',
+    fontStyle: node ? getComputedStyle(node).fontStyle : '',
+    textDecoration: node ? getComputedStyle(node).textDecoration : ''
+  };
+  return true;
+}
+
+function applyBrushToSelection(){
+  if(!brushHTML) return false;
+  restoreSelection();
+  const sel=window.getSelection();
+  if(!sel || sel.rangeCount===0 || sel.isCollapsed || !editor.contains(sel.anchorNode)) return false;
+
+  const r=sel.getRangeAt(0);
+  const span=document.createElement('span');
+  if(brushTextStyle){
+    span.style.fontSize=brushTextStyle.fontSize;
+    span.style.color=brushTextStyle.color;
+    span.style.fontFamily=brushTextStyle.fontFamily;
+    span.style.fontWeight=brushTextStyle.fontWeight;
+    span.style.fontStyle=brushTextStyle.fontStyle;
+    span.style.textDecoration=brushTextStyle.textDecoration;
+  }
+  try{
+    r.surroundContents(span);
+  }catch(e){
+    const frag=r.extractContents();
+    span.appendChild(frag);
+    r.insertNode(span);
+  }
+  saveSelection();
+  return true;
+}
+
+function activateBrush(continuous=false){
+  if(!captureBrushFormat()){
+    $('status').textContent='Selecione primeiro um trecho que tenha a formatação desejada.';
+    return;
+  }
+  brushContinuous=continuous;
+  $('paintBrushBtn').classList.toggle('active',!continuous);
+  $('paintBrushContinuousBtn').classList.toggle('active',continuous);
+  editor.style.cursor='copy';
+  $('status').textContent=continuous
+    ? 'Pincel contínuo ativo: selecione os trechos de destino.'
+    : 'Pincel ativo: selecione o trecho de destino.';
+}
+
+function deactivateBrush(){
+  brushHTML=null;
+  brushTextStyle=null;
+  brushContinuous=false;
+  $('paintBrushBtn').classList.remove('active');
+  $('paintBrushContinuousBtn').classList.remove('active');
+  editor.style.cursor='';
+}
+
+$('paintBrushBtn').addEventListener('mousedown',e=>e.preventDefault());
+$('paintBrushContinuousBtn').addEventListener('mousedown',e=>e.preventDefault());
+
+$('paintBrushBtn').addEventListener('click',()=>{
+  if(brushHTML && !brushContinuous) deactivateBrush();
+  else activateBrush(false);
+});
+
+$('paintBrushContinuousBtn').addEventListener('click',()=>{
+  if(brushContinuous) deactivateBrush();
+  else activateBrush(true);
+});
+
+editor.addEventListener('mouseup',()=>{
+  if(brushHTML && window.getSelection()?.toString().trim()){
+    if(applyBrushToSelection() && !brushContinuous) deactivateBrush();
+  }
+});
+
+function applyExactFontSize(px){
+  restoreSelection();
+  editor.focus();
+  if(!savedRange || savedRange.collapsed) return;
+  document.execCommand('fontSize',false,'7');
+  editor.querySelectorAll('font[size="7"]').forEach(font=>{
+    const span=document.createElement('span');
+    span.style.fontSize=px+'px';
+    while(font.firstChild) span.appendChild(font.firstChild);
+    font.replaceWith(span);
+  });
+  saveSelection();
+}
+
+function getSelectedFontSize(){
+  const sel=window.getSelection();
+  if(!sel || !sel.anchorNode) return 14;
+  const el=sel.anchorNode.nodeType===3 ? sel.anchorNode.parentElement : sel.anchorNode;
+  const px=parseFloat(getComputedStyle(el).fontSize);
+  return Number.isFinite(px) ? px : 14;
+}
+function changeSelectedFont(delta){
+  const current=getSelectedFontSize();
+  const steps=[8,10,12,14,16,18,20,22,24,26,28,30,32,34,36,38,40,42];
+  let idx=steps.findIndex(v=>v>=current);
+  if(idx<0) idx=steps.length-1;
+  if(delta<0 && steps[idx]>=current && idx>0) idx--;
+  if(delta>0 && steps[idx]<=current && idx<steps.length-1) idx++;
+  applyExactFontSize(steps[idx]);
+  $('fontSize').value=String(steps[idx]);
+}
+
+$('fontDecrease').addEventListener('mousedown',e=>e.preventDefault());
+$('fontIncrease').addEventListener('mousedown',e=>e.preventDefault());
+$('fontDecrease').addEventListener('click',()=>changeSelectedFont(-1));
+$('fontIncrease').addEventListener('click',()=>changeSelectedFont(1));
+
+$('fontSize').addEventListener('change',()=>{
+  const value=$('fontSize').value;
+  if(value) applyExactFontSize(value);
+  $('fontSize').value='';
+});
+$('fontColor').addEventListener('input',()=>applyCommand('foreColor',$('fontColor').value));
+
+let selectedRule=null;
+function selectRule(rule){
+  if(selectedRule) selectedRule.classList.remove('selected');
+  selectedRule=rule;
+  if(selectedRule) selectedRule.classList.add('selected');
+}
+$('lineBtn').addEventListener('mousedown',e=>e.preventDefault());
+$('lineBtn').addEventListener('click',()=>{
+  restoreSelection();
+  editor.focus();
+  const color=$('lineColor').value || '#D8D8D8';
+  document.execCommand('insertHTML',false,
+    '<hr class="editor-rule" style="--editor-line-color:'+color+'">');
+  saveSelection();
+});
+$('lineColor').addEventListener('input',()=>{
+  const color=$('lineColor').value;
+  document.documentElement.style.setProperty('--editor-line-color',color);
+  if(selectedRule) selectedRule.style.setProperty('--editor-line-color',color);
+});
+editor.addEventListener('click',e=>{
+  if(e.target.classList.contains('editor-rule')){
+    selectRule(e.target);
+  }else if(selectedRule){
+    selectedRule.classList.remove('selected');
+    selectedRule=null;
+  }
+});
+
+$('resetTitleStyle').addEventListener('mousedown',e=>e.preventDefault());
+$('resetTitleStyle').addEventListener('click',()=>{
+  $('estiloTitulo').value='linha';
+  aplicarEstiloTitulos('linha');
+});
+$('linkBtn').addEventListener('click',()=>{
+  const u=prompt('URL do link:'); if(u) document.execCommand('createLink',false,u);
+});
+editor.addEventListener('keydown', e=>{
+  if((e.ctrlKey || e.metaKey) && e.key.toLowerCase()==='z'){
+    e.preventDefault();
+    applyCommand(e.shiftKey ? 'redo' : 'undo');
+  }else if((e.ctrlKey || e.metaKey) && e.key.toLowerCase()==='y'){
+    e.preventDefault();
+    applyCommand('redo');
+  }
+});
+
+function updateActiveTitleButton(){
+  const sel=window.getSelection();
+  if(!sel || !sel.anchorNode) return;
+  let el=sel.anchorNode.nodeType===3 ? sel.anchorNode.parentElement : sel.anchorNode;
+  if(!el || !editor.contains(el)) return;
+  const block=el.closest('h1,h2,h3,p,blockquote');
+  if(!block) return;
+  const tag=block.tagName.toLowerCase();
+  document.querySelectorAll('.title-btn').forEach(x=>x.classList.toggle('active',x.dataset.block===tag));
+}
+editor.addEventListener('keyup',updateActiveTitleButton);
+editor.addEventListener('mouseup',updateActiveTitleButton);
+
+
+let tableModalData=null;
+
+function getCurrentSelectionRange(){
+  const sel=window.getSelection();
+  if(!sel || sel.rangeCount===0 || sel.isCollapsed || !editor.contains(sel.anchorNode)) return null;
+  return sel.getRangeAt(0).cloneRange();
+}
+
+function extractSelectedLines(){
+  const range=getCurrentSelectionRange();
+  if(!range) return null;
+
+  const text=range.toString().replace(/\r/g,'').trim();
+  if(!text) return null;
+
+  const lines=text.split('\n').map(x=>x.trim()).filter(Boolean);
+  const rows=[];
+
+  for(const line of lines){
+    let clean=line.replace(/^[-*•►]\s+/,'').replace(/^\d+[\.\)]\s+/,'').trim();
+    clean=clean.replace(/[;]\s*$/,'').trim();
+
+    let parts=null;
+    if(clean.includes('|')){
+      parts=clean.split('|').map(x=>x.trim()).filter((_,i,a)=>!(i===0&&a[0]==='')&&!(i===a.length-1&&a[a.length-1]===''));
+    }else{
+      const colon=clean.match(/^(.+?)\s*:\s*(.+)$/);
+      if(colon) parts=[colon[1].trim(),colon[2].trim()];
+      else{
+        const dash=clean.match(/^(.+?)\s+[–—-]\s+(.+)$/);
+        if(dash) parts=[dash[1].trim(),dash[2].trim()];
+      }
+    }
+    if(parts && parts.length>=2) rows.push(parts);
+    else rows.push([clean]);
+  }
+
+  const cols=Math.max(...rows.map(r=>r.length),1);
+  return {range,text,rows:rows.map(r=>{
+    while(r.length<cols) r.push('');
+    return r;
+  }),cols};
+}
+
+function buildTablePreview(){
+  const table=$('tablePreview');
+  table.innerHTML='';
+  if(!tableModalData) return;
+
+  const rows=tableModalData.rows;
+  const cols=tableModalData.cols;
+  const thead=document.createElement('thead');
+  const trh=document.createElement('tr');
+  const first=rows[0]||Array(cols).fill('');
+  first.forEach((cell,c)=>{
+    const th=document.createElement('th');
+    th.contentEditable='true';
+    th.dataset.r='0';th.dataset.c=String(c);
+    th.textContent=cell;
+    trh.appendChild(th);
+  });
+  thead.appendChild(trh);
+  table.appendChild(thead);
+
+  const tbody=document.createElement('tbody');
+  rows.slice(1).forEach((row,ri)=>{
+    const tr=document.createElement('tr');
+    tr.draggable=true;
+    tr.dataset.r=String(ri+1);
+    const drag=document.createElement('td');
+    drag.className='table-row-drag';
+    drag.textContent='⋮⋮';
+    drag.title='Arraste para reposicionar';
+    tr.appendChild(drag);
+    row.forEach((cell,c)=>{
+      const td=document.createElement('td');
+      td.contentEditable='true';
+      td.dataset.r=String(ri+1);td.dataset.c=String(c);
+      td.textContent=cell;
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
+
+  if(rows.length===1){
+    const tr=document.createElement('tr');
+    tr.dataset.r='1';tr.draggable=true;
+    const drag=document.createElement('td');
+    drag.className='table-row-drag';drag.textContent='⋮⋮';
+    tr.appendChild(drag);
+    for(let c=0;c<cols;c++){
+      const td=document.createElement('td');
+      td.contentEditable='true';td.dataset.r='1';td.dataset.c=String(c);
+      td.textContent='';
+      tr.appendChild(td);
+    }
+    tbody.appendChild(tr);
+  }
+
+  let dragged=null;
+  tbody.querySelectorAll('tr').forEach(row=>{
+    row.addEventListener('dragstart',()=>{dragged=row;row.classList.add('dragging')});
+    row.addEventListener('dragend',()=>{row.classList.remove('dragging');dragged=null;syncModalDataFromPreview()});
+    row.addEventListener('dragover',e=>{
+      e.preventDefault();
+      if(!dragged||dragged===row)return;
+      const box=row.getBoundingClientRect();
+      if(e.clientY<box.top+box.height/2) tbody.insertBefore(dragged,row);
+      else tbody.insertBefore(dragged,row.nextSibling);
+    });
+  });
+}
+
+function syncModalDataFromPreview(){
+  const table=$('tablePreview');
+  const out=[];
+  const header=table.querySelector('thead tr');
+  if(header){
+    out.push(Array.from(header.querySelectorAll('th')).map(x=>x.textContent.trim()));
+  }
+  table.querySelectorAll('tbody tr').forEach(tr=>{
+    const cells=Array.from(tr.querySelectorAll('td:not(.table-row-drag)')).map(x=>x.textContent.trim());
+    if(cells.length) out.push(cells);
+  });
+  tableModalData.rows=out;
+  tableModalData.cols=Math.max(...out.map(r=>r.length),1);
+}
+
+function openTableModal(){
+  const data=extractSelectedLines();
+  if(!data){
+    $('status').textContent='Selecione primeiro as linhas que deseja transformar em tabela.';
+    return;
+  }
+  tableModalData=data;
+  buildTablePreview();
+  $('tableModalSubtitle').textContent=`Foram identificadas ${data.rows.length} linha(s) e ${data.cols} coluna(s). Você pode editar e reposicionar antes de confirmar.`;
+  $('tableModalOverlay').classList.add('open');
+}
+
+function closeTableModal(){
+  $('tableModalOverlay').classList.remove('open');
+  tableModalData=null;
+}
+
+function addModalRow(){
+  syncModalDataFromPreview();
+  tableModalData.rows.push(Array(tableModalData.cols).fill(''));
+  buildTablePreview();
+}
+function addModalCol(){
+  syncModalDataFromPreview();
+  tableModalData.rows.forEach(r=>r.push(''));
+  tableModalData.cols++;
+  buildTablePreview();
+}
+function removeModalRow(){
+  syncModalDataFromPreview();
+  if(tableModalData.rows.length<=2)return;
+  tableModalData.rows.pop();
+  buildTablePreview();
+}
+function removeModalCol(){
+  syncModalDataFromPreview();
+  if(tableModalData.cols<=1)return;
+  tableModalData.rows.forEach(r=>r.pop());
+  tableModalData.cols--;
+  buildTablePreview();
+}
+
+function confirmTableModal(){
+  syncModalDataFromPreview();
+  const d=tableModalData;
+  if(!d||!d.rows.length)return;
+
+  const range=d.range;
+  const table=document.createElement('table');
+  table.className='editor-markdown-table';
+
+  const thead=document.createElement('thead');
+  const trh=document.createElement('tr');
+  d.rows[0].forEach(v=>{
+    const th=document.createElement('th');th.textContent=v;trh.appendChild(th);
+  });
+  thead.appendChild(trh);table.appendChild(thead);
+
+  const tbody=document.createElement('tbody');
+  d.rows.slice(1).forEach(row=>{
+    const tr=document.createElement('tr');
+    row.forEach(v=>{const td=document.createElement('td');td.textContent=v;tr.appendChild(td)});
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
+
+  range.deleteContents();
+  range.insertNode(table);
+  const after=document.createElement('p');after.innerHTML='<br>';
+  table.after(after);
+  closeTableModal();
+  editor.focus();
+  $('status').textContent='Tabela inserida no local da seleção.';
+}
+
+$('convertTableBtn').addEventListener('mousedown',e=>e.preventDefault());
+$('convertTableBtn').addEventListener('click',openTableModal);
+$('addTableRow').addEventListener('click',addModalRow);
+$('addTableCol').addEventListener('click',addModalCol);
+$('removeTableRow').addEventListener('click',removeModalRow);
+$('removeTableCol').addEventListener('click',removeModalCol);
+$('cancelTableModal').addEventListener('click',closeTableModal);
+$('confirmTableModal').addEventListener('click',confirmTableModal);
+$('tableModalOverlay').addEventListener('click',e=>{
+  if(e.target.id==='tableModalOverlay')closeTableModal();
+});
+
+$('tableBtn').addEventListener('click',()=>{
+  const rows=Math.max(1,parseInt(prompt('Número de linhas:','3')||'3'));
+  const cols=Math.max(1,parseInt(prompt('Número de colunas:','3')||'3'));
+  let t='<table><thead><tr>'+Array.from({length:cols},(_,i)=>`<th>Coluna ${i+1}</th>`).join('')+'</tr></thead><tbody>';
+  for(let r=0;r<rows-1;r++) t+='<tr>'+Array.from({length:cols},()=>'<td>&nbsp;</td>').join('')+'</tr>';
+  t+='</tbody></table>';
+  document.execCommand('insertHTML',false,t);editor.focus();
+});
+
+function normalizeText(raw){
+  return raw.replace(/\r/g,'').replace(/[ \t]+\n/g,'\n').replace(/\n{3,}/g,'\n\n').trim();
+}
+
+function autoFormat(raw){
+  raw=normalizeText(raw);
+  const lines=raw.split('\n');
+  let out='';
+  let inList=false;
+
+  function isTitle(s){
+    if(!s || s.length>120) return false;
+    if(/^(I{1,3}|IV|V|VI{0,3}|VII|VIII|IX|X)[\.\-\)]\s+/i.test(s)) return true;
+    if(/^(DOS |DAS |DO |DA |CRITÉRIOS|CONCLUSÃO|CONSIDERAÇÕES|DISPOSITIVO|RELATÓRIO|SÍNTESE|OBJETO|METODOLOGIA|RESULTADO|OBSERVAÇÕES|FUNDAMENTAÇÃO)/i.test(s)) return true;
+    if(s===s.toUpperCase() && /[A-ZÁÉÍÓÚÂÊÔÃÕÇ]/.test(s) && s.length<90) return true;
+    return false;
+  }
+  function isSub(s){
+    return s.length<100 && (/^[0-9]+\.\s+/.test(s) || /^[A-Z]\)\s+/.test(s));
+  }
+
+  lines.forEach(line=>{
+    const s=line.trim();
+    if(!s)return;
+    if(/^[-•►]\s*/.test(s)){
+      if(!inList){out+='<ul>';inList=true}
+      out+='<li>'+escapeHtml(s.replace(/^[-•►]\s*/,''))+'</li>';
+      return;
+    }
+    if(inList){out+='</ul>';inList=false}
+    if(isTitle(s)){
+      const roman=/^(I{1,3}|IV|V|VI{0,3}|VII|VIII|IX|X)[\.\-\)]/i.test(s);
+      out+=`<h2>${escapeHtml(s)}</h2>`;
+    }else if(isSub(s)){
+      out+=`<h3>${escapeHtml(s)}</h3>`;
+    }else{
+      out+=`<p>${escapeHtml(s)}</p>`;
+    }
+  });
+  if(inList)out+='</ul>';
+  return out;
+}
+
+async function readPdf(file){
+  $('status').textContent='Lendo PDF...';
+  const buf=await file.arrayBuffer();
+  const pdf=await pdfjsLib.getDocument({data:buf}).promise;
+  let all=[];
+  for(let i=1;i<=pdf.numPages;i++){
+    $('status').textContent=`Lendo página ${i} de ${pdf.numPages}...`;
+    const page=await pdf.getPage(i);
+    const content=await page.getTextContent();
+    let lastY=null, line='';
+    for(const item of content.items){
+      const y=Math.round(item.transform[5]);
+      if(lastY!==null && Math.abs(y-lastY)>4){
+        if(line.trim()) all.push(line.trim());
+        line='';
+      }
+      line+=(line?' ':'')+item.str;
+      lastY=y;
+    }
+    if(line.trim()) all.push(line.trim());
+    all.push('');
+  }
+  const raw=all.join('\n');
+  editor.innerHTML='<h1>Conteúdo importado</h1>'+autoFormat(raw);
+  $('status').textContent=`PDF lido: ${pdf.numPages} página(s). Conteúdo extraído e organizado.`;
+}
+
+
+function markdownToHtml(md){
+  md=md.replace(/\r/g,'');
+  const lines=md.split('\n');
+  let out='',inUl=false,inOl=false,inCode=false,code=[];
+
+  const inline=s=>escapeHtml(s)
+    .replace(/`([^`]+)`/g,'<code>$1</code>')
+    .replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>')
+    .replace(/__([^_]+)__/g,'<strong>$1</strong>')
+    .replace(/\*([^*]+)\*/g,'<em>$1</em>')
+    .replace(/_([^_]+)_/g,'<em>$1</em>')
+    .replace(/~~([^~]+)~~/g,'<del>$1</del>')
+    .replace(/\[([^\]]+)\]\(([^)\s]+)(?:\s+"([^"]*)")?\)/g,
+      (_,label,url,title)=>`<a href="${url}" target="_blank" rel="noopener"${title?` title="${title}"`:''}>${label}</a>`);
+
+  function closeLists(){
+    if(inUl){out+='</ul>';inUl=false}
+    if(inOl){out+='</ol>';inOl=false}
+  }
+
+  function splitTableRow(row){
+    let s=row.trim();
+    if(s.startsWith('|')) s=s.slice(1);
+    if(s.endsWith('|')) s=s.slice(0,-1);
+    const cells=[];
+    let current='',escaped=false;
+    for(let i=0;i<s.length;i++){
+      const ch=s[i];
+      if(ch==='\\' && !escaped){escaped=true;current+=ch;continue}
+      if(ch==='|' && !escaped){cells.push(current.trim());current='';}
+      else current+=ch;
+      escaped=false;
+    }
+    cells.push(current.trim());
+    return cells;
+  }
+
+  function isTableSeparator(row){
+    const cells=splitTableRow(row);
+    return cells.length>0 && cells.every(c=>/^:?-{3,}:?$/.test(c));
+  }
+
+  function tableAlignment(separator){
+    return separator.map(c=>{
+      const left=c.startsWith(':');
+      const right=c.endsWith(':');
+      return left&&right?'center':left?'left':right?'right':'';
+    });
+  }
+
+  function renderTable(header,separator,bodyRows){
+    const aligns=tableAlignment(separator);
+    let t='<table class="editor-markdown-table"><thead><tr>';
+    header.forEach((cell,i)=>{
+      const a=aligns[i]?' style="text-align:'+aligns[i]+'"':'';
+      t+='<th'+a+'>'+inline(cell)+'</th>';
+    });
+    t+='</tr></thead><tbody>';
+    bodyRows.forEach(row=>{
+      if(!row.some(Boolean)) return;
+      t+='<tr>';
+      for(let i=0;i<header.length;i++){
+        const a=aligns[i]?' style="text-align:'+aligns[i]+'"':'';
+        t+='<td'+a+'>'+inline(row[i]||'')+'</td>';
+      }
+      t+='</tr>';
+    });
+    t+='</tbody></table>';
+    return t;
+  }
+
+  for(let i=0;i<lines.length;i++){
+    const raw=lines[i], t=raw.trim();
+
+    if(/^```/.test(t)){
+      if(!inCode){closeLists();inCode=true;code=[]}
+      else {out+='<pre><code>'+escapeHtml(code.join('\n'))+'</code></pre>';inCode=false}
+      continue;
+    }
+    if(inCode){code.push(raw);continue}
+
+    if(!t){closeLists();continue}
+
+    if(t.includes('|') && i+1<lines.length && isTableSeparator(lines[i+1].trim())){
+      closeLists();
+      const header=splitTableRow(t);
+      const separator=splitTableRow(lines[i+1].trim());
+      const body=[];
+      i+=2;
+      while(i<lines.length){
+        const rowText=lines[i].trim();
+        if(!rowText || !rowText.includes('|')){i--;break}
+        body.push(splitTableRow(rowText));
+        i++;
+      }
+      out+=renderTable(header,separator,body);
+      continue;
+    }
+
+    if(/^---+$/.test(t)||/^\*\*\*+$/.test(t)||/^___+$/.test(t)){
+      closeLists();out+='<hr class="editor-rule">';continue;
+    }
+
+    const h=t.match(/^(#{1,6})\s+(.+)$/);
+    if(h){
+      closeLists();
+      const level=Math.min(h[1].length,3);
+      out+=`<h${level}>${inline(h[2])}</h${level}>`;
+      continue;
+    }
+
+    if(/^>\s?/.test(t)){
+      closeLists();
+      out+='<blockquote>'+inline(t.replace(/^>\s?/,'') )+'</blockquote>';
+      continue;
+    }
+
+    const ul=t.match(/^[-*+]\s+(?!\[[ xX]\]\s+)(.+)$/);
+    if(ul){
+      if(!inUl){closeLists();out+='<ul>';inUl=true}
+      out+='<li>'+inline(ul[1])+'</li>';
+      continue;
+    }
+
+    const ol=t.match(/^\d+\.\s+(.+)$/);
+    if(ol){
+      if(!inOl){closeLists();out+='<ol>';inOl=true}
+      out+='<li>'+inline(ol[1])+'</li>';
+      continue;
+    }
+
+    const task=t.match(/^[-*+]\s+\[([ xX])\]\s+(.+)$/);
+    if(task){
+      if(!inUl){closeLists();out+='<ul class="task-list">';inUl=true}
+      out+='<li><input type="checkbox" '+(task[1].toLowerCase()==='x'?'checked':'')+' disabled> '+inline(task[2])+'</li>';
+      continue;
+    }
+
+    closeLists();
+    out+='<p>'+inline(t)+'</p>';
+  }
+
+  if(inCode) out+='<pre><code>'+escapeHtml(code.join('\n'))+'</code></pre>';
+  closeLists();
+  return out || '<p></p>';
+}
+
+function htmlFileToEditor(text){
+  const doc=new DOMParser().parseFromString(text,'text/html');
+  const body=doc.body;
+  body.querySelectorAll('script,style,meta,link').forEach(e=>e.remove());
+  return body.innerHTML || '<p></p>';
+}
+
+async function readUploadedFile(file){
+  const ext=(file.name.split('.').pop()||'').toLowerCase();
+  if(ext==='pdf'){
+    await readPdf(file);
+    return;
+  }
+  const text=await file.text();
+  if(ext==='md'||ext==='markdown'){
+    editor.innerHTML=markdownToHtml(text);
+    $('status').textContent='Markdown carregado e formatado.';
+  }else if(ext==='html'||ext==='htm'){
+    editor.innerHTML=htmlFileToEditor(text);
+  }else{
+    editor.innerHTML=autoFormat(text);
+  }
+  $('status').textContent=`Arquivo carregado: ${file.name}`;
+  updateMeta();
+  saveSelection();
+}
+
+function renderFileList(files){
+  const list=$('fileList');
+  list.innerHTML='';
+  Array.from(files).forEach((f,i)=>{
+    const row=document.createElement('div');
+    row.className='file-item';
+    row.innerHTML=`<span class="file-type">${(f.name.split('.').pop()||'ARQ').toUpperCase()}</span>
+      <span class="file-name" title="${escapeHtml(f.name)}">${escapeHtml(f.name)}</span>
+      <button class="secondary" data-load="${i}">Abrir</button>`;
+    list.appendChild(row);
+  });
+  list.querySelectorAll('[data-load]').forEach(btn=>{
+    btn.addEventListener('click',()=>readUploadedFile(files[Number(btn.dataset.load)]).catch(err=>{
+      $('status').textContent='Erro ao abrir arquivo: '+err.message;
+    }));
+  });
+}
+
+let selectedFiles=[];
+$('chooseFiles').addEventListener('click',()=>$('filePicker').click());
+$('filePicker').addEventListener('change',e=>{
+  selectedFiles=Array.from(e.target.files||[]);
+  renderFileList(selectedFiles);
+  if(selectedFiles[0]) readUploadedFile(selectedFiles[0]).catch(err=>$('status').textContent='Erro: '+err.message);
+});
+['dragenter','dragover'].forEach(ev=>$('drop').addEventListener(ev,e=>{
+  e.preventDefault();$('drop').classList.add('drag');
+}));
+['dragleave','drop'].forEach(ev=>$('drop').addEventListener(ev,e=>{
+  e.preventDefault();$('drop').classList.remove('drag');
+}));
+$('drop').addEventListener('drop',e=>{
+  selectedFiles=Array.from(e.dataTransfer.files||[]);
+  renderFileList(selectedFiles);
+  if(selectedFiles[0]) readUploadedFile(selectedFiles[0]).catch(err=>$('status').textContent='Erro: '+err.message);
+});
+$('clearFiles').addEventListener('click',()=>{
+  selectedFiles=[];$('filePicker').value='';$('fileList').innerHTML='';
+  $('status').textContent='Lista de arquivos limpa.';
+});
+
+$('auto').addEventListener('click',()=>{
+  const currentText=editor.innerText.trim();
+  if(!currentText) return;
+  saveSelection();
+  editor.focus();
+  document.execCommand('selectAll',false,null);
+  document.execCommand('insertHTML',false,'<h1>Relatório de Laudo / Informações</h1>'+autoFormat(currentText));
+  saveSelection();
+  updateMeta();
+});
+$('limpar').addEventListener('click',()=>{if(confirm('Limpar todo o conteúdo do editor?'))editor.innerHTML='<h1>Relatório de Laudo / Informações</h1><p></p>'});
+
+$('imprimir').addEventListener('click',()=>{
+  updateMeta();
+  const originalTitle=document.title;
+  const pdfFilename=getProjectFilename('pdf');
+  document.title=pdfFilename;
+
+  const restoreTitle=()=>{
+    document.title=originalTitle;
+    window.removeEventListener('afterprint',restoreTitle);
+  };
+  window.addEventListener('afterprint',restoreTitle);
+  setTimeout(()=>{
+    if(document.title===pdfFilename) document.title=originalTitle;
+  },10000);
+
+  window.print();
+});
+$('copiar').addEventListener('click',async()=>{
+  await navigator.clipboard.writeText(editor.innerText);
+  $('status').textContent='Conteúdo copiado para a área de transferência.';
+});
+
+
+function htmlToMarkdown(root){
+  function inline(node){
+    if(node.nodeType===3) return node.nodeValue;
+    if(node.nodeType!==1) return '';
+
+    const tag=node.tagName.toLowerCase();
+    const content=Array.from(node.childNodes).map(inline).join('');
+
+    if(tag==='strong'||tag==='b') return '**'+content+'**';
+    if(tag==='em'||tag==='i') return '*'+content+'*';
+    if(tag==='del'||tag==='s') return '~~'+content+'~~';
+    if(tag==='code') return '`'+content+'`';
+    if(tag==='a'){
+      const href=node.getAttribute('href')||'';
+      return href ? '['+content+']('+href+')' : content;
+    }
+    if(tag==='br') return '\n';
+    return content;
+  }
+
+  function tableToMd(table){
+    const rows=Array.from(table.querySelectorAll('tr'));
+    if(!rows.length) return '';
+    const matrix=rows.map(tr=>Array.from(tr.children).map(cell=>
+      inline(cell).replace(/\|/g,'\\|').replace(/\n+/g,' ').trim()
+    ));
+    const cols=Math.max(...matrix.map(r=>r.length));
+    const header=matrix[0]||[];
+    while(header.length<cols) header.push('');
+    let md='| '+header.join(' | ')+' |\\n';
+    md+='| '+Array.from({length:cols},()=> '---').join(' | ')+' |\\n';
+    matrix.slice(1).forEach(row=>{
+      while(row.length<cols) row.push('');
+      md+='| '+row.join(' | ')+' |\\n';
+    });
+    return md.trim();
+  }
+
+  function block(node, level=0){
+    if(node.nodeType===3) return node.nodeValue;
+    if(node.nodeType!==1) return '';
+
+    const tag=node.tagName.toLowerCase();
+
+    if(tag==='table') return tableToMd(node)+'\n\n';
+    if(/^h[1-6]$/.test(tag)){
+      const n=Number(tag[1]);
+      return '#'.repeat(n)+' '+inline(node).trim()+'\n\n';
+    }
+    if(tag==='hr') return '---\n\n';
+    if(tag==='blockquote'){
+      return inline(node).trim().split(/\n/).map(x=>'> '+x).join('\n')+'\n\n';
+    }
+    if(tag==='pre'){
+      return '```\\n'+node.innerText.replace(/\n$/,'')+'\\n```\\n\\n';
+    }
+    if(tag==='ul'||tag==='ol'){
+      const items=Array.from(node.children).filter(x=>x.tagName.toLowerCase()==='li');
+      return items.map((li,i)=>{
+        const prefix=tag==='ol' ? `${i+1}. ` : '- ';
+        return prefix+inline(li).trim();
+      }).join('\n')+'\n\n';
+    }
+    if(tag==='p'){
+      const txt=inline(node).trim();
+      return txt ? txt+'\n\n' : '';
+    }
+
+    if(['div','section','article','main','body'].includes(tag)){
+      let result='';
+      node.childNodes.forEach(child=>{
+        result+=block(child,level+1);
+      });
+      return result;
+    }
+
+    return inline(node);
+  }
+
+  return block(root)
+    .replace(/\n{3,}/g,'\n\n')
+    .trim()+'\n';
+}
+
+
+function sanitizeFilenamePart(value){
+  return String(value||'')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g,'')
+    .replace(/[^A-Za-z0-9]+/g,'-')
+    .replace(/^-+|-+$/g,'')
+    .toUpperCase();
+}
+
+function getProcessNumber4(){
+  const digits=String($('processo')?.value||'').replace(/\D/g,'');
+  return (digits.slice(0,4) || '0000').padStart(4,'0');
+}
+
+function getFirstTwoAuthorNames(){
+  const parts=String($('autor')?.value||'').trim().split(/\s+/)
+    .map(sanitizeFilenamePart).filter(Boolean);
+  return parts.slice(0,2).join('-') || 'SEM-AUTOR';
+}
+
+function getProjectFilename(extension){
+  const now=new Date();
+  const dd=String(now.getDate()).padStart(2,'0');
+  const mm=String(now.getMonth()+1).padStart(2,'0');
+  const yyyy=String(now.getFullYear());
+  const hh=String(now.getHours()).padStart(2,'0');
+  const mi=String(now.getMinutes()).padStart(2,'0');
+  const ss=String(now.getSeconds()).padStart(2,'0');
+  return `PARECER-${getFirstTwoAuthorNames()}-${getProcessNumber4()}-${dd}${mm}${yyyy}-${hh}${mi}${ss}.${extension}`;
+}
+
+function downloadTextFile(filename, content, mime){
+  try{
+    const blob=new Blob([content],{type:mime||'application/octet-stream;charset=utf-8'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;
+    a.download=filename;
+    a.style.display='none';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(()=>{
+      a.remove();
+      URL.revokeObjectURL(url);
+    },1000);
+    return true;
+  }catch(err){
+    console.error(err);
+    return false;
+  }
+}
+
+function exportMarkdown(){
+  try{
+    updateMeta();
+    const markdown=htmlToMarkdown(editor);
+    if(!markdown.trim()){
+      $('status').textContent='Não há conteúdo para extrair em Markdown.';
+      return;
+    }
+    if(downloadTextFile(getProjectFilename('md'),markdown,'text/markdown;charset=utf-8')){
+      $('status').textContent='Arquivo .MD extraído com sucesso.';
+    }else{
+      $('status').textContent='Não foi possível gerar o arquivo .MD.';
+    }
+  }catch(err){
+    $('status').textContent='Erro ao extrair .MD: '+err.message;
+    console.error(err);
+  }
+}
+
+$('extrairMd').addEventListener('click',exportMarkdown);
+if($('extrairMdArquivos')) $('extrairMdArquivos').addEventListener('click',exportMarkdown);
+
+$('salvar').addEventListener('click',()=>{
+  try{
+    updateMeta();
+    const data={
+      versao:3,
+      identificacao:{
+        processo:$('processo').value||'',
+        assunto:$('assunto').value||'',
+        autor:$('autor').value||'',
+        reu:$('reu').value||'',
+        vara:$('vara').value||'',
+        atualizacao:$('atualizacao').value||'',
+        ajuizamento:$('ajuizamento')?.value||'',
+        citacao:$('citacao')?.value||''
+      },
+      aparencia:{
+        corPrincipal:$('corPrincipal').value||'#A85F43',
+        corTitulos:$('corTitulos').value||'#A85F43',
+        estiloTitulo:$('estiloTitulo').value||'linha',
+        corLinha:$('lineColor').value||'#D8D8D8'
+      },
+      html:editor.innerHTML
+    };
+
+    const dataFileName=getProjectFilename('json');
+    const ok=downloadTextFile(
+      dataFileName,
+      JSON.stringify(data,null,2),
+      'application/json;charset=utf-8'
+    );
+
+    $('status').textContent=ok
+      ? 'JSON salvo: '+dataFileName
+      : 'Não foi possível gerar o JSON.';
+  }catch(err){
+    $('status').textContent='Erro ao salvar JSON: '+err.message;
+    console.error(err);
+  }
+});
+
+$('carregar').addEventListener('click',()=>{
+  const input=$('jsonFile');
+  input.value='';
+  input.click();
+});
+
+$('jsonFile').addEventListener('change',e=>{
+  const f=e.target.files && e.target.files[0];
+  if(!f) return;
+
+  const reader=new FileReader();
+
+  reader.onerror=()=>{
+    $('status').textContent='Não foi possível ler o arquivo JSON.';
+  };
+
+  reader.onload=()=>{
+    try{
+      const raw=String(reader.result||'');
+      const j=JSON.parse(raw);
+
+      if(!j || typeof j!=='object'){
+        throw new Error('O arquivo não contém um projeto JSON válido.');
+      }
+
+      const m=j.identificacao||{};
+      const fields=['processo','assunto','autor','reu','vara','atualizacao','ajuizamento','citacao'];
+      fields.forEach(k=>{
+        if($(k)) $(k).value=m[k] ?? '';
+      });
+
+      if(j.aparencia){
+        if(j.aparencia.corPrincipal && $('corPrincipal'))
+          $('corPrincipal').value=j.aparencia.corPrincipal;
+        if(j.aparencia.corTitulos && $('corTitulos'))
+          $('corTitulos').value=j.aparencia.corTitulos;
+        if(j.aparencia.estiloTitulo && $('estiloTitulo'))
+          $('estiloTitulo').value=j.aparencia.estiloTitulo;
+        if(j.aparencia.corLinha && $('lineColor')){
+          $('lineColor').value=j.aparencia.corLinha;
+          document.documentElement.style.setProperty('--editor-line-color',j.aparencia.corLinha);
+        }
+      }
+
+      if(typeof j.html==='string'){
+        editor.innerHTML=j.html;
+      }else if(typeof j.conteudo==='string'){
+        editor.innerHTML=j.conteudo;
+      }else{
+        throw new Error('O JSON não possui o conteúdo do editor.');
+      }
+
+      updateMeta();
+      applyTheme();
+      $('status').textContent='Projeto JSON carregado com sucesso.';
+    }catch(err){
+      $('status').textContent='Erro ao carregar JSON: '+err.message;
+      console.error('JSON inválido:',err);
+    }
+  };
+
+  reader.readAsText(f,'utf-8');
+});
+
+if($('lineColor')) document.documentElement.style.setProperty('--editor-line-color',$('lineColor').value);
+updateMeta();
+applyTheme();
+</script>
+</body>
+</html>
