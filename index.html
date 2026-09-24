@@ -340,6 +340,12 @@ button.small{padding:7px 9px;font-size:12px}
 }
 
 @media print{
+  /* Elementos de autenticação: somente interface, nunca no PDF */
+  #computumUserbar, .computum-userbar, #computumAuthOverlay{
+    display:none !important;
+    visibility:hidden !important;
+  }
+
   /* Terracota mais marcado no PDF — não afeta a tela */
   :root{ --primary:#8B3A1F; }
 
