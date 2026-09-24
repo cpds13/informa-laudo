@@ -349,7 +349,7 @@ button.small{padding:7px 9px;font-size:12px}
     font-family:var(--cj-font-sans);
     font-size:11.5pt;
   }
-  header,.project-bar,.left-panel,.toolbar,.computum-userbar,#computumAuthOverlay{display:none!important}
+  header,.project-bar,.left-panel,.toolbar{display:none!important}
   .container{
     padding:0;
     max-width:none;
@@ -1948,7 +1948,8 @@ async function readUploadedFile(file){
   }
   const text=await file.text();
   if(ext==='md'||ext==='markdown'){
-    editor.innerHTML=markdownToHtml(text);
+    const normalizedText=text.replace(/\\n/g,'\n');
+    editor.innerHTML=markdownToHtml(normalizedText);
     $('status').textContent='Markdown carregado e formatado.';
   }else if(ext==='html'||ext==='htm'){
     editor.innerHTML=htmlFileToEditor(text);
